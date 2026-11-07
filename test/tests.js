@@ -98,6 +98,45 @@ const TESTS = [
     assertClose(tip.x, points[5].x, 1e-9, '畫筆 x');
     assertClose(tip.y, points[5].y, 1e-9, '畫筆 y');
   }],
+
+  ['取樣後點數為 N、點距均勻且首尾相接', () => {
+    // 邊長 100 的正方形，周長 400，取 40 點時每段應剛好 10
+    const square = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }];
+    const out = closeAndResample(square, 40);
+    assert(out.length === 40, `點數應為 40，實際 ${out.length}`);
+    for (let i = 0; i < out.length; i++) {
+      const a = out[i];
+      const b = out[(i + 1) % out.length]; // 最後一點接回第一點
+      assertClose(Math.hypot(b.x - a.x, b.y - a.y), 10, 1e-9, `第 ${i} 段長度`);
+    }
+    assert(out[0].x === 0 && out[0].y === 0, '第 0 點應為筆畫起點');
+  }],
+
+  ['取樣可處理重複點，不產生 NaN', () => {
+    const raw = [{ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 50, y: 0 }, { x: 50, y: 0 }, { x: 50, y: 50 }];
+    for (const p of closeAndResample(raw, 16)) {
+      assert(Number.isFinite(p.x) && Number.isFinite(p.y), '出現 NaN 或無限大');
+    }
+  }],
+
+  ['取樣不修改原陣列', () => {
+    const raw = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }];
+    closeAndResample(raw, 8);
+    assert(raw.length === 3, '原陣列長度被改動');
+  }],
+
+  ['筆畫有效性：太短或太小無效', () => {
+    const dot = [];
+    for (let i = 0; i < 30; i++) dot.push({ x: i * 0.5, y: 0 });
+    assert(!isValidStroke(dot), '外框太小的筆畫應無效');
+    assert(!isValidStroke([{ x: 0, y: 0 }, { x: 300, y: 300 }]), '點太少的筆畫應無效');
+    const circle = [];
+    for (let i = 0; i < 50; i++) {
+      const a = (2 * Math.PI * i) / 50;
+      circle.push({ x: 100 * Math.cos(a), y: 100 * Math.sin(a) });
+    }
+    assert(isValidStroke(circle), '正常大小的圓應有效');
+  }],
 ];
 
 /** 執行測試，可用關鍵字篩選名稱。回傳 [{name, ok, error}] */
