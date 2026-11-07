@@ -74,14 +74,17 @@ function drawStroke(view, points) {
 /**
  * 畫圓鏈。joints 來自 epicycleChain：第 i 個圓的圓心是 joints[i]、臂尖是 joints[i + 1]。
  * 頻率 0 的常數項不轉動，不畫圓也不畫臂。
+ * 半徑小於 0.5 個 CSS 像素的圓在畫面上看不見，略過不畫；
+ * 它們的位移已包含在 joints 裡，所以畫筆位置仍然正確。
  * 所有圓合成一條路徑、所有臂合成一條路徑，減少 stroke 次數。
  */
 function drawEpicycles(view, terms, joints) {
   const ctx = view.ctx;
+  const minRadius = 0.5 * view.unit;
 
   ctx.beginPath();
   for (let i = 0; i < terms.length; i++) {
-    if (terms[i].freq === 0) continue;
+    if (terms[i].freq === 0 || terms[i].amp < minRadius) continue;
     const c = joints[i];
     ctx.moveTo(c.x + terms[i].amp, c.y);
     ctx.arc(c.x, c.y, terms[i].amp, 0, 2 * Math.PI);
@@ -91,6 +94,7 @@ function drawEpicycles(view, terms, joints) {
   ctx.stroke();
 
   ctx.beginPath();
+  // 臂全部都畫：只是線段，成本低；略過的話許多小臂累積起來會讓圓鏈與畫筆之間出現空隙
   for (let i = 0; i < terms.length; i++) {
     if (terms[i].freq === 0) continue;
     ctx.moveTo(joints[i].x, joints[i].y);
