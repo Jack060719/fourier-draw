@@ -23,7 +23,7 @@ const state = {
 const MESSAGES = {
   idle: '在畫布上畫一條封閉曲線（放開時會自動閉合）',
   drawing: '放開即自動閉合曲線',
-  playing: '播放中，可直接再畫一條新的曲線',
+  playing: '拖動滑桿調整圓圈數量，也可直接再畫一條新的曲線',
   invalid: '筆畫太短或太小，請畫大一點的封閉曲線',
 };
 
@@ -33,9 +33,27 @@ function setMessage(text, warn = false) {
   messageEl.classList.toggle('warn', warn);
 }
 
+const slider = document.getElementById('count');
+const countLabel = document.getElementById('count-label');
+
+/**
+ * 套用滑桿的圓圈數量 c：使用常數項加上前 c 個旋轉的圓。
+ * 立刻重算完整逼近曲線，不必等動畫跑完一圈。
+ */
+function applyCircleCount() {
+  const c = Number(slider.value);
+  state.active = state.terms.slice(0, c + 1);
+  updateApprox();
+  countLabel.textContent = `${c} / ${state.terms.length - 1}`;
+}
+
+slider.addEventListener('input', applyCircleCount);
+
 function reset() {
   state.mode = 'idle';
   state.raw = [];
+  slider.disabled = true;
+  countLabel.textContent = '—';
   setMessage(MESSAGES.idle);
 }
 
@@ -49,8 +67,10 @@ function updateApprox() {
 function startPlaying() {
   state.original = closeAndResample(state.raw, SAMPLE_COUNT);
   state.terms = sortByFrequency(dft(state.original));
-  state.active = state.terms;
-  updateApprox();
+  // 滑桿範圍 1 到全部旋轉的圓（扣掉常數項）；新圖形保留目前的圈數設定
+  slider.max = String(state.terms.length - 1);
+  slider.disabled = false;
+  applyCircleCount();
   state.t = 0;
   state.lastTime = null;
   state.mode = 'playing';
