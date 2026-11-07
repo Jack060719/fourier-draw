@@ -10,11 +10,12 @@
   <main class="app">
     <h1>傅立葉畫圖機</h1>
     <canvas id="board" aria-label="繪圖畫布"></canvas>
-    <p id="message" class="message">在畫布上畫一條封閉曲線（放開時會自動閉合）</p>
+    <!-- 提示、圈數與滑桿範圍由 app.js 設定 -->
+    <p id="message" class="message"></p>
     <div class="controls">
       <label class="slider">
-        <span>圓圈數量：<output id="count-label">—</output></span>
-        <input id="count" type="range" min="1" max="511" step="1" value="511" disabled>
+        <span>圓圈數量：<output id="count-label"></output></span>
+        <input id="count" type="range" min="1" step="1" disabled>
       </label>
       <button id="clear" type="button">清除重畫</button>
     </div>

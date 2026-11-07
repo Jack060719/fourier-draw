@@ -33,13 +33,12 @@
     for (const r of results) {
       const li = document.createElement('li');
       li.className = r.ok ? 'pass' : 'fail';
-      li.textContent = (r.ok ? '✓ ' : '✗ ') + r.name + (r.ok ? '' : '：' + r.error);
+      li.textContent = formatResult(r);
       list.appendChild(li);
     }
-    const passed = results.filter((r) => r.ok).length;
     const summary = document.getElementById('summary');
-    summary.textContent = `通過 ${passed} / ${results.length}`;
-    summary.className = passed === results.length ? 'pass' : 'fail';
+    summary.textContent = summarize(results);
+    summary.className = results.every((r) => r.ok) ? 'pass' : 'fail';
   </script>
 </body>
 </html>

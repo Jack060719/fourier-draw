@@ -6,6 +6,7 @@
   --text: #e6e9ec;
   --muted: #8b949e;
   --accent: #4fc3f7;
+  --warn: #ffb86b;
 }
 
 * {
@@ -27,11 +28,13 @@ body {
 }
 
 /*
- * 版面：直向時由上而下排列；橫向且夠寬時（iPad 橫放、桌機）畫布在左、控制項在右。
+ * 版面：直向時由上而下排列；橫向且夠寬時（iPad 橫放、桌機）畫布在左、控制項在右（見檔案最後）。
  * --board 是畫布邊長，取「可用寬度」與「可用高度」中較小者，確保整個畫布都看得到。
+ * 32px 是左右（或上下）的 16px 留白，220px 是直向時標題、提示與控制項的高度。
  */
 .app {
-  --board: min(calc(100vw - 32px), calc(100vh - 220px), 800px);
+  --vh: 100vh;
+  --board: min(calc(100vw - 32px), calc(var(--vh) - 220px), 800px);
   display: grid;
   /* 欄寬固定為畫布寬，長訊息會換行而不會撐寬版面 */
   grid-template-columns: var(--board);
@@ -54,45 +57,7 @@ body {
 /* iOS Safari 的 100vh 包含網址列，dvh 才是實際可見高度 */
 @supports (height: 100dvh) {
   .app {
-    --board: min(calc(100vw - 32px), calc(100dvh - 220px), 800px);
-  }
-}
-
-@media (orientation: landscape) and (min-width: 700px) {
-  .app {
-    --board: min(calc(100vh - 32px), calc(100vw - 360px), 900px);
-    grid-template-columns: var(--board) 280px;
-    grid-template-rows: auto auto 1fr;
-    grid-template-areas:
-      "board title"
-      "board message"
-      "board controls";
-    justify-items: start;
-    column-gap: 24px;
-  }
-
-  /* 加上 .app 提高優先權，蓋過檔案後面的基本樣式 */
-  .app .message {
-    text-align: left;
-  }
-
-  .app .controls {
-    flex-direction: column;
-    align-items: stretch;
-    align-self: start;
-  }
-
-  /* 直排時滑桿不再撐滿，按鈕緊接在滑桿下方 */
-  .app .slider {
-    flex: none;
-  }
-}
-
-@supports (height: 100dvh) {
-  @media (orientation: landscape) and (min-width: 700px) {
-    .app {
-      --board: min(calc(100dvh - 32px), calc(100vw - 360px), 900px);
-    }
+    --vh: 100dvh;
   }
 }
 
@@ -113,6 +78,18 @@ h1 {
   /* 畫圖時不讓瀏覽器捲動或縮放頁面 */
   touch-action: none;
   cursor: crosshair;
+}
+
+.message {
+  grid-area: message;
+  margin: 0;
+  min-height: 1.5em;
+  color: var(--muted);
+  text-align: center;
+}
+
+.message.warn {
+  color: var(--warn);
 }
 
 .controls {
@@ -156,14 +133,33 @@ button {
   cursor: pointer;
 }
 
-.message.warn {
-  color: #ffb86b;
-}
+/* 橫向：畫布在左，標題、提示與控制項在右側 280px 欄 */
+@media (orientation: landscape) and (min-width: 700px) {
+  .app {
+    /* 360px = 右欄 280px + 欄距 24px + 左右留白與餘裕 */
+    --board: min(calc(var(--vh) - 32px), calc(100vw - 360px), 900px);
+    grid-template-columns: var(--board) 280px;
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      "board title"
+      "board message"
+      "board controls";
+    justify-items: start;
+    column-gap: 24px;
+  }
 
-.message {
-  grid-area: message;
-  margin: 0;
-  min-height: 1.5em;
-  color: var(--muted);
-  text-align: center;
+  .message {
+    text-align: left;
+  }
+
+  /* 直排時滑桿不撐滿，按鈕緊接在滑桿下方 */
+  .controls {
+    flex-direction: column;
+    align-items: stretch;
+    align-self: start;
+  }
+
+  .slider {
+    flex: none;
+  }
 }

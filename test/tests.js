@@ -22,6 +22,16 @@ function seededRandom(seed) {
   };
 }
 
+/** 圓上等距的 n 點；direction 為 -1 時反向繞 */
+function circlePoints(n, r, direction = 1) {
+  const points = [];
+  for (let i = 0; i < n; i++) {
+    const a = (direction * 2 * Math.PI * i) / n;
+    points.push({ x: r * Math.cos(a), y: r * Math.sin(a) });
+  }
+  return points;
+}
+
 const TESTS = [
   ['DFT 後用全部的項重建，誤差 < 1e-9', () => {
     const rand = seededRandom(42);
@@ -37,14 +47,8 @@ const TESTS = [
   }],
 
   ['單一正圓只在 k = 1 有能量，半徑相符', () => {
-    const N = 32;
     const r = 120;
-    const points = [];
-    for (let n = 0; n < N; n++) {
-      const a = (2 * Math.PI * n) / N;
-      points.push({ x: r * Math.cos(a), y: r * Math.sin(a) });
-    }
-    for (const term of dft(points)) {
+    for (const term of dft(circlePoints(32, r))) {
       if (term.freq === 1) {
         assertClose(term.amp, r, 1e-9, 'k = 1 的半徑');
       } else {
@@ -54,21 +58,17 @@ const TESTS = [
   }],
 
   ['反向的圓落在 k = -1', () => {
-    const N = 16;
-    const points = [];
-    for (let n = 0; n < N; n++) {
-      const a = (-2 * Math.PI * n) / N;
-      points.push({ x: 50 * Math.cos(a), y: 50 * Math.sin(a) });
-    }
-    const big = dft(points).filter((term) => term.amp > 1e-9);
+    const big = dft(circlePoints(16, 50, -1)).filter((term) => term.amp > 1e-9);
     assert(big.length === 1 && big[0].freq === -1, '應只有 k = -1 有能量');
   }],
 
-  ['常數項等於重心', () => {
+  ['分離常數項：圓心為重心，其餘皆為旋轉的圓', () => {
     const points = [{ x: 10, y: 20 }, { x: 30, y: 40 }, { x: 50, y: 0 }, { x: 70, y: -20 }];
-    const dc = dft(points).find((term) => term.freq === 0);
-    assertClose(dc.re, 40, 1e-9, '重心 x');
-    assertClose(dc.im, 10, 1e-9, '重心 y');
+    const { center, circles } = splitConstant(dft(points));
+    assertClose(center.x, 40, 1e-9, '重心 x');
+    assertClose(center.y, 10, 1e-9, '重心 y');
+    assert(circles.length === 3, `應有 3 個圓，實際 ${circles.length}`);
+    assert(circles.every((term) => term.freq !== 0), '圓裡不應有常數項');
   }],
 
   ['排序結果為 0, +1, -1, +2, -2, ...', () => {
@@ -87,13 +87,14 @@ const TESTS = [
     assert(terms.map((term) => term.freq).join(',') === '2,0,-1', '原陣列被改動');
   }],
 
-  ['圓鏈最後一點等於重建曲線上的點', () => {
+  ['圓鏈從重心出發，最後一點等於原曲線上的點', () => {
     const rand = seededRandom(7);
     const points = [];
     for (let i = 0; i < 20; i++) points.push({ x: rand() * 100, y: rand() * 100 });
-    const terms = sortByFrequency(dft(points));
-    const joints = epicycleChain(terms, 5 / 20);
-    assert(joints.length === terms.length + 1, '節點數應為項數 + 1');
+    const { center, circles } = splitConstant(sortByFrequency(dft(points)));
+    const joints = epicycleChain(circles, 5 / 20, center);
+    assert(joints.length === circles.length + 1, '節點數應為圓數 + 1');
+    assert(joints[0].x === center.x && joints[0].y === center.y, '第 0 點應為重心');
     const tip = joints[joints.length - 1];
     assertClose(tip.x, points[5].x, 1e-9, '畫筆 x');
     assertClose(tip.y, points[5].y, 1e-9, '畫筆 y');
@@ -130,12 +131,7 @@ const TESTS = [
     for (let i = 0; i < 30; i++) dot.push({ x: i * 0.5, y: 0 });
     assert(!isValidStroke(dot), '外框太小的筆畫應無效');
     assert(!isValidStroke([{ x: 0, y: 0 }, { x: 300, y: 300 }]), '點太少的筆畫應無效');
-    const circle = [];
-    for (let i = 0; i < 50; i++) {
-      const a = (2 * Math.PI * i) / 50;
-      circle.push({ x: 100 * Math.cos(a), y: 100 * Math.sin(a) });
-    }
-    assert(isValidStroke(circle), '正常大小的圓應有效');
+    assert(isValidStroke(circlePoints(50, 100)), '正常大小的圓應有效');
   }],
 ];
 
@@ -151,4 +147,14 @@ function runTests(filter) {
         return { name, ok: false, error: e.message };
       }
     });
+}
+
+/** 單一結果的一行文字 */
+function formatResult(r) {
+  return (r.ok ? '✓ ' : '✗ ') + r.name + (r.ok ? '' : '：' + r.error);
+}
+
+/** 總結文字 */
+function summarize(results) {
+  return `通過 ${results.filter((r) => r.ok).length} / ${results.length}`;
 }

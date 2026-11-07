@@ -14,7 +14,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 用傳統 `<script>` 載入，不用 ES modules（`file://` 下 modules 會被 CORS 擋）。函式放全域，載入順序由 `index.html` 決定。
 - 資料流程：`input.js`（指標事件 → 邏輯座標）→ `path.js`（閉合、按弧長取樣成 N 點）→ `dft.js`（DFT、依 |頻率| 排序）→ `app.js`（狀態與動畫迴圈）→ `render.js`（Canvas 繪製）。
 - 座標：畫布固定為邏輯座標 ±500、原點在中心，只有 `render.js` 換算實際像素與 devicePixelRatio。
-- 排序後第 0 項是 `freq = 0` 的常數項，不算一個圓；滑桿值 c 代表使用 `terms.slice(0, c + 1)`。
+- `freq = 0` 的常數項由 `splitConstant` 分離成圓鏈起點 `center`，不算一個圓；滑桿值 c 代表使用 `circles.slice(0, c)`。
+- 顏色與線寬只在 `render.js`（`COLORS` 與各 `draw*` 函式）；`app.js` 不直接指定樣式。
 - `test/tests.js` 同時給瀏覽器（`test.html`）與 Node（`run.js`）使用，改測試只需改這個檔。
 
 # 專案：傅立葉畫圖機（多媒體課作品）

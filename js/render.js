@@ -34,6 +34,22 @@ function resizeView(view) {
   view.unit = LOGICAL_SIZE / rect.width;
 }
 
+/**
+ * 畫布尺寸或 devicePixelRatio 改變時重設解析度（會清空畫布）。
+ * 視窗縮放、iPad 旋轉會改變尺寸；把視窗移到另一個螢幕只會改變 devicePixelRatio，
+ * ResizeObserver 偵測不到，所以另外用 resolution 媒體查詢監聽。
+ */
+function watchResize(view) {
+  new ResizeObserver(() => resizeView(view)).observe(view.canvas);
+  const watchPixelRatio = () => {
+    matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`).addEventListener('change', () => {
+      resizeView(view);
+      watchPixelRatio(); // 新的比例要用新的查詢
+    }, { once: true });
+  };
+  watchPixelRatio();
+}
+
 /** 螢幕座標（clientX/Y）轉邏輯座標 */
 function clientToLogical(view, clientX, clientY) {
   const rect = view.canvas.getBoundingClientRect();
@@ -48,17 +64,9 @@ function clearView(view) {
   view.ctx.clearRect(-half, -half, LOGICAL_SIZE, LOGICAL_SIZE);
 }
 
-/**
- * 畫一條折線。
- * @param {object} options color、width（CSS 像素）、closed（是否接回起點）
- */
-function drawCurve(view, points, { color, width = 2, closed = false }) {
-  if (points.length < 2) return;
+/** 用指定顏色與線寬（CSS 像素）描繪目前的路徑 */
+function strokePath(view, color, width) {
   const ctx = view.ctx;
-  ctx.beginPath();
-  ctx.moveTo(points[0].x, points[0].y);
-  for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
-  if (closed) ctx.closePath();
   ctx.strokeStyle = color;
   ctx.lineWidth = width * view.unit;
   ctx.lineJoin = 'round';
@@ -66,43 +74,62 @@ function drawCurve(view, points, { color, width = 2, closed = false }) {
   ctx.stroke();
 }
 
+/**
+ * 畫一條折線，可只畫前 end 個點，再接到 extra 點（不另外建立陣列）。
+ * @param {object} options color、width（CSS 像素）、closed、end、extra
+ */
+function drawCurve(view, points, { color, width = 2, closed = false, end = points.length, extra = null }) {
+  if (points.length === 0) return;
+  const ctx = view.ctx;
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < end; i++) ctx.lineTo(points[i].x, points[i].y);
+  if (extra) ctx.lineTo(extra.x, extra.y);
+  if (closed) ctx.closePath();
+  strokePath(view, color, width);
+}
+
 /** 手繪中的筆跡 */
 function drawStroke(view, points) {
   drawCurve(view, points, { color: COLORS.stroke, width: 3 });
 }
 
+/** 播放時的原圖（淡灰） */
+function drawOriginal(view, points) {
+  drawCurve(view, points, { color: COLORS.original, closed: true });
+}
+
+/** 目前圈數的完整逼近曲線（淡色） */
+function drawApprox(view, points) {
+  drawCurve(view, points, { color: COLORS.approx, closed: true });
+}
+
+/** 畫筆已走過的軌跡：points 的前 end 點再接到畫筆位置 tip */
+function drawTrail(view, points, end, tip) {
+  drawCurve(view, points, { color: COLORS.trail, width: 2.5, end, extra: tip });
+}
+
 /**
  * 畫圓鏈。joints 來自 epicycleChain：第 i 個圓的圓心是 joints[i]、臂尖是 joints[i + 1]。
- * 頻率 0 的常數項不轉動，不畫圓也不畫臂。
  * 半徑小於 0.5 個 CSS 像素的圓在畫面上看不見，略過不畫；
  * 它們的位移已包含在 joints 裡，所以畫筆位置仍然正確。
- * 所有圓合成一條路徑、所有臂合成一條路徑，減少 stroke 次數。
+ * 所有圓合成一條路徑，所有臂則是一條穿過各節點的折線，減少 stroke 次數。
  */
-function drawEpicycles(view, terms, joints) {
+function drawEpicycles(view, circles, joints) {
   const ctx = view.ctx;
   const minRadius = 0.5 * view.unit;
 
   ctx.beginPath();
-  for (let i = 0; i < terms.length; i++) {
-    if (terms[i].freq === 0 || terms[i].amp < minRadius) continue;
-    const c = joints[i];
-    ctx.moveTo(c.x + terms[i].amp, c.y);
-    ctx.arc(c.x, c.y, terms[i].amp, 0, 2 * Math.PI);
+  for (let i = 0; i < circles.length; i++) {
+    const r = circles[i].amp;
+    if (r < minRadius) continue;
+    ctx.moveTo(joints[i].x + r, joints[i].y);
+    ctx.arc(joints[i].x, joints[i].y, r, 0, 2 * Math.PI);
   }
-  ctx.strokeStyle = COLORS.circle;
-  ctx.lineWidth = 1 * view.unit;
-  ctx.stroke();
+  strokePath(view, COLORS.circle, 1);
 
-  ctx.beginPath();
-  // 臂全部都畫：只是線段，成本低；略過的話許多小臂累積起來會讓圓鏈與畫筆之間出現空隙
-  for (let i = 0; i < terms.length; i++) {
-    if (terms[i].freq === 0) continue;
-    ctx.moveTo(joints[i].x, joints[i].y);
-    ctx.lineTo(joints[i + 1].x, joints[i + 1].y);
-  }
-  ctx.strokeStyle = COLORS.arm;
-  ctx.lineWidth = 1.5 * view.unit;
-  ctx.stroke();
+  // 臂全部都畫：略過的話許多小臂累積起來會讓圓鏈與畫筆之間出現空隙
+  drawCurve(view, joints, { color: COLORS.arm, width: 1.5 });
 
   // 畫筆位置
   const tip = joints[joints.length - 1];

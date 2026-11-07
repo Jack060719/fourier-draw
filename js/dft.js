@@ -48,13 +48,40 @@ function sortByFrequency(terms) {
 }
 
 /**
- * 求時間 t（0 ≤ t < 1，一圈）時圓鏈各節點的位置。
- * 回傳 terms.length + 1 個點：第 0 點是原點，第 i + 1 點是第 i 個圓的臂尖，
- * 也就是第 i 個圓的圓心是第 i 點。最後一點就是畫筆位置。
+ * 把頻率 0 的常數項分離出來：它不會旋轉，只決定圓鏈的起點（曲線的重心）。
+ * 依頻率而非位置尋找，所以不論用哪種方式排序都正確。
+ * @returns {{center:{x:number, y:number}, circles:Array}} circles 保持原本順序
  */
-function epicycleChain(terms, t) {
-  let x = 0;
-  let y = 0;
+function splitConstant(terms) {
+  const dc = terms.find((term) => term.freq === 0);
+  return {
+    center: dc ? { x: dc.re, y: dc.im } : { x: 0, y: 0 },
+    circles: terms.filter((term) => term.freq !== 0),
+  };
+}
+
+const ORIGIN = { x: 0, y: 0 };
+
+/** 時間 t（0 ≤ t < 1，一圈）時，從 origin 出發、所有圓疊加後的畫筆位置 */
+function pointAt(terms, t, origin = ORIGIN) {
+  let x = origin.x;
+  let y = origin.y;
+  for (const term of terms) {
+    const angle = 2 * Math.PI * term.freq * t + term.phase;
+    x += term.amp * Math.cos(angle);
+    y += term.amp * Math.sin(angle);
+  }
+  return { x, y };
+}
+
+/**
+ * 求時間 t 時圓鏈各節點的位置。
+ * 回傳 terms.length + 1 個點：第 0 點是 origin，第 i 個圓的圓心是第 i 點、臂尖是第 i + 1 點。
+ * 最後一點就是畫筆位置，與 pointAt 相同。
+ */
+function epicycleChain(terms, t, origin = ORIGIN) {
+  let x = origin.x;
+  let y = origin.y;
   const joints = [{ x, y }];
   for (const term of terms) {
     const angle = 2 * Math.PI * term.freq * t + term.phase;
@@ -69,18 +96,8 @@ function epicycleChain(terms, t) {
  * 用給定的項重建整條曲線，在 t = j / samples 取樣。
  * 用全部的項且 samples 等於原點數時，會精確還原原本的點。
  */
-function reconstruct(terms, samples) {
+function reconstruct(terms, samples, origin = ORIGIN) {
   const points = [];
-  for (let j = 0; j < samples; j++) {
-    const t = j / samples;
-    let x = 0;
-    let y = 0;
-    for (const term of terms) {
-      const angle = 2 * Math.PI * term.freq * t + term.phase;
-      x += term.amp * Math.cos(angle);
-      y += term.amp * Math.sin(angle);
-    }
-    points.push({ x, y });
-  }
+  for (let j = 0; j < samples; j++) points.push(pointAt(terms, j / samples, origin));
   return points;
 }
