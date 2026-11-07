@@ -51,6 +51,31 @@ h1 {
   cursor: crosshair;
 }
 
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: min(calc(100vw - 32px), 800px);
+  /* 避免 iPad 連點按鈕時縮放頁面 */
+  touch-action: manipulation;
+}
+
+button {
+  min-height: 44px; /* iPad 建議的最小觸控尺寸 */
+  padding: 0 20px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--bg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.message.warn {
+  color: #ffb86b;
+}
+
 .message {
   margin: 0;
   min-height: 1.5em;

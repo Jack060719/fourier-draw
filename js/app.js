@@ -20,9 +20,26 @@ const state = {
   lastTime: null,
 };
 
-function setMessage(text) {
+const MESSAGES = {
+  idle: '在畫布上畫一條封閉曲線（放開時會自動閉合）',
+  drawing: '放開即自動閉合曲線',
+  playing: '播放中，可直接再畫一條新的曲線',
+  invalid: '筆畫太短或太小，請畫大一點的封閉曲線',
+};
+
+/** 顯示提示；warn 為 true 時用警告色 */
+function setMessage(text, warn = false) {
   messageEl.textContent = text;
+  messageEl.classList.toggle('warn', warn);
 }
+
+function reset() {
+  state.mode = 'idle';
+  state.raw = [];
+  setMessage(MESSAGES.idle);
+}
+
+document.getElementById('clear').addEventListener('click', reset);
 
 /** 依目前使用的項重新計算逼近曲線 */
 function updateApprox() {
@@ -43,6 +60,7 @@ attachInput(canvas, (x, y) => clientToLogical(view, x, y), {
   onStart(p) {
     state.mode = 'drawing';
     state.raw = [p];
+    setMessage(MESSAGES.drawing);
   },
   onMove(p) {
     if (state.mode === 'drawing') state.raw.push(p);
@@ -50,11 +68,12 @@ attachInput(canvas, (x, y) => clientToLogical(view, x, y), {
   onEnd() {
     if (state.mode !== 'drawing') return;
     if (!isValidStroke(state.raw)) {
-      state.mode = 'idle';
-      state.raw = [];
+      reset();
+      setMessage(MESSAGES.invalid, true);
       return;
     }
     startPlaying();
+    setMessage(MESSAGES.playing);
   },
 });
 
