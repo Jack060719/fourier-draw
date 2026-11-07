@@ -7,7 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 開啟網頁：直接雙擊 `index.html`（不需伺服器）
 - 數學測試（命令列）：`node test/run.js`；只跑名稱含關鍵字的測試：`node test/run.js 排序`
 - 數學測試（瀏覽器）：開啟 `test/test.html`
-- iPad 實機測試：`python -m http.server 8000`，iPad 在同一 Wi-Fi 開 `http://<電腦IP>:8000`
+- 部署：GitHub Pages 從 `main` 分支根目錄提供，`git push` 後約 1 分鐘自動更新：https://jack060719.github.io/fourier-draw/
+- iPad 實機測試：push 後直接在 iPad 開上述網址（看到舊版就強制重新整理）
 
 ## 架構
 
