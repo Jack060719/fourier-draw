@@ -26,23 +26,87 @@ body {
   overscroll-behavior: none;
 }
 
+/*
+ * 版面：直向時由上而下排列；橫向且夠寬時（iPad 橫放、桌機）畫布在左、控制項在右。
+ * --board 是畫布邊長，取「可用寬度」與「可用高度」中較小者，確保整個畫布都看得到。
+ */
 .app {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  --board: min(calc(100vw - 32px), calc(100vh - 220px), 800px);
+  display: grid;
+  /* 欄寬固定為畫布寬，長訊息會換行而不會撐寬版面 */
+  grid-template-columns: var(--board);
+  grid-template-areas:
+    "title"
+    "board"
+    "message"
+    "controls";
+  justify-content: center;
+  justify-items: center;
   gap: 12px;
-  padding: 16px;
+  /* 避開 iPhone、iPad 的瀏海與圓角 */
+  padding:
+    max(16px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+}
+
+/* iOS Safari 的 100vh 包含網址列，dvh 才是實際可見高度 */
+@supports (height: 100dvh) {
+  .app {
+    --board: min(calc(100vw - 32px), calc(100dvh - 220px), 800px);
+  }
+}
+
+@media (orientation: landscape) and (min-width: 700px) {
+  .app {
+    --board: min(calc(100vh - 32px), calc(100vw - 360px), 900px);
+    grid-template-columns: var(--board) 280px;
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      "board title"
+      "board message"
+      "board controls";
+    justify-items: start;
+    column-gap: 24px;
+  }
+
+  /* 加上 .app 提高優先權，蓋過檔案後面的基本樣式 */
+  .app .message {
+    text-align: left;
+  }
+
+  .app .controls {
+    flex-direction: column;
+    align-items: stretch;
+    align-self: start;
+  }
+
+  /* 直排時滑桿不再撐滿，按鈕緊接在滑桿下方 */
+  .app .slider {
+    flex: none;
+  }
+}
+
+@supports (height: 100dvh) {
+  @media (orientation: landscape) and (min-width: 700px) {
+    .app {
+      --board: min(calc(100dvh - 32px), calc(100vw - 360px), 900px);
+    }
+  }
 }
 
 h1 {
+  grid-area: title;
   margin: 0;
   font-size: 1.4rem;
   font-weight: 600;
 }
 
 #board {
+  grid-area: board;
   /* 正方形畫布；實際解析度由 render.js 依 devicePixelRatio 設定 */
-  width: min(calc(100vw - 32px), calc(100vh - 220px), 800px);
+  width: var(--board);
   aspect-ratio: 1;
   background: var(--panel);
   border-radius: 12px;
@@ -52,10 +116,11 @@ h1 {
 }
 
 .controls {
+  grid-area: controls;
   display: flex;
   align-items: center;
   gap: 16px;
-  width: min(calc(100vw - 32px), 800px);
+  width: 100%;
   /* 避免 iPad 連點按鈕時縮放頁面 */
   touch-action: manipulation;
 }
@@ -96,6 +161,7 @@ button {
 }
 
 .message {
+  grid-area: message;
   margin: 0;
   min-height: 1.5em;
   color: var(--muted);
